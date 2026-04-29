@@ -5,8 +5,8 @@ import { useRef, useEffect, useState, useCallback } from "react";
 const ITEM_HEIGHT = 44; // px per item in the wheel
 const VISIBLE_ITEMS = 5; // items visible at once (centre = selected)
 
-const MINUTES = Array.from({ length: 100 }, (_, i) => i);      // 0–99 min
-const SECONDS = Array.from({ length: 12 }, (_, i) => i * 5);   // 0, 5, 10 … 55
+const MINUTES = Array.from({ length: 181 }, (_, i) => i);      // 0–180 min
+const SECONDS = Array.from({ length: 60 }, (_, i) => i);        // 0–59 sec
 
 interface WheelProps {
   items: number[];
@@ -164,7 +164,7 @@ interface TimerPickerProps {
 
 export default function TimerPicker({ initialSeconds = 90, onChange }: TimerPickerProps) {
   const [minutes, setMinutes] = useState(Math.floor(initialSeconds / 60));
-  const [seconds, setSeconds] = useState(Math.round((initialSeconds % 60) / 5) * 5 % 60);
+  const [seconds, setSeconds] = useState(initialSeconds % 60);
 
   function handleMinutes(m: number) {
     setMinutes(m);

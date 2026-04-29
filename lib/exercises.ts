@@ -13,6 +13,7 @@ export type ExerciseInfo = {
   name: string;
   category?: string; // e.g. "Chest", "Back", "Legs"
   muscles?: string[]; // primary muscles
+  aliases?: string[]; // alternative search terms
   wgerId?: number;   // numeric ID from wger (for image lookup)
 };
 
@@ -74,10 +75,10 @@ const FALLBACK_EXERCISES: ExerciseInfo[] = [
   { id: "b-17", name: "Preacher Curl Machine",        category: "Arms", muscles: ["Biceps"] },
 
   // ── TRICEPS ─────────────────────────────────────────────────────────────────
-  { id: "t-1",  name: "Tricep Dips",                  category: "Arms", muscles: ["Triceps"] },
-  { id: "t-2",  name: "Weighted Dips",                category: "Arms", muscles: ["Triceps", "Chest"] },
-  { id: "t-3",  name: "Bench Dips",                   category: "Arms", muscles: ["Triceps"] },
-  { id: "t-4",  name: "Floor Dips",                   category: "Arms", muscles: ["Triceps"] },
+  { id: "t-1",  name: "Tricep Dips",                  category: "Arms", muscles: ["Triceps"], aliases: ["dips", "tricep dip", "dip", "triceps dips", "parallel bar dip"] },
+  { id: "t-2",  name: "Weighted Dips",                category: "Arms", muscles: ["Triceps", "Chest"], aliases: ["weighted dip", "belt dip"] },
+  { id: "t-3",  name: "Bench Dips",                   category: "Arms", muscles: ["Triceps"], aliases: ["bench dip", "chair dip"] },
+  { id: "t-4",  name: "Floor Dips",                   category: "Arms", muscles: ["Triceps"], aliases: ["floor dip"] },
   { id: "t-5",  name: "Barbell Skull Crusher",        category: "Arms", muscles: ["Triceps"] },
   { id: "t-6",  name: "EZ-Bar Skull Crusher",         category: "Arms", muscles: ["Triceps"] },
   { id: "t-7",  name: "Dumbbell Skull Crusher",       category: "Arms", muscles: ["Triceps"] },
@@ -179,6 +180,7 @@ const FALLBACK_EXERCISES: ExerciseInfo[] = [
   { id: "s-23", name: "Band Pull-Apart",              category: "Shoulders", muscles: ["Rear Deltoids"] },
   { id: "s-24", name: "External Rotation Cable",      category: "Shoulders", muscles: ["Rotator Cuff"] },
   { id: "s-25", name: "Upright Row",                  category: "Shoulders", muscles: ["Deltoids", "Trapezius"] },
+  { id: "s-26", name: "Dumbbell High Pull",            category: "Shoulders", muscles: ["Deltoids", "Trapezius"], aliases: ["high pull dumbbell", "db high pull", "dumbbell high pull"] },
 
   // ── LEGS — QUADS ────────────────────────────────────────────────────────────
   { id: "q-1",  name: "Barbell Back Squat",           category: "Legs", muscles: ["Quadriceps", "Glutes"] },
@@ -481,8 +483,11 @@ const SYNONYM_MAP: Record<string, { categories?: string[]; muscles?: string[] }>
   pullups:      { categories: ["Back"] },
   "chin-up":    { categories: ["Back"] },
   chinup:       { categories: ["Back"] },
-  dip:          { categories: ["Arms", "Chest"] },
-  dips:         { categories: ["Arms", "Chest"] },
+  dip:          { categories: ["Arms", "Chest"], muscles: ["Triceps"] },
+  dips:         { categories: ["Arms", "Chest"], muscles: ["Triceps"] },
+  "tricep dip": { categories: ["Arms"], muscles: ["Triceps"] },
+  "tricep dips":{ categories: ["Arms"], muscles: ["Triceps"] },
+  "triceps dip":{ categories: ["Arms"], muscles: ["Triceps"] },
   lunge:        { categories: ["Legs"] },
   lunges:       { categories: ["Legs"] },
   plank:        { categories: ["Core"] },
@@ -529,9 +534,10 @@ export function buildFuse(exercises: ExerciseInfo[]): Fuse<ExerciseInfo> {
   if (_fuse && (_fuse as unknown as { _docs: unknown[] })._docs?.length === exercises.length) return _fuse;
   _fuse = new Fuse(exercises, {
     keys: [
-      { name: "name", weight: 0.7 },
-      { name: "category", weight: 0.2 },
-      { name: "muscles", weight: 0.1 },
+      { name: "name", weight: 0.6 },
+      { name: "aliases", weight: 0.3 },
+      { name: "category", weight: 0.05 },
+      { name: "muscles", weight: 0.05 },
     ],
     threshold: 0.4,
     includeScore: true,

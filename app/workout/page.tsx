@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { addWorkout, generateId, type Exercise, type Set } from "@/lib/store";
+import {
+  addWorkout, generateId, type Exercise, type Set,
+  getWorkoutTemplates, saveWorkoutTemplate, deleteWorkoutTemplate,
+  getPreviousExerciseData,
+  type WorkoutTemplate,
+} from "@/lib/store";
 import ExercisePicker from "@/components/ExercisePicker";
 import TimerPicker from "@/components/TimerPicker";
 import {
   Plus, Trash2, CheckCircle, X,
   ChevronDown, ChevronUp, Dumbbell,
-  Timer, Hash, SkipForward, Settings2, Layers,
+  Timer, Hash, SkipForward, Settings2, Layers, BookmarkPlus, BookOpen, Trash, History,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,6 +65,29 @@ type WorkoutItem =
   | (LocalExercise & { kind: "exercise" })
   | LocalSuperset;
 
+// ─── Audio pling ──────────────────────────────────────────────────────────────
+
+function playTimerDone() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    // Two-tone pling: high then slightly lower
+    [[880, 0, 0.15], [660, 0.18, 0.25]].forEach(([freq, start, end]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.35, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + end);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + end);
+    });
+  } catch {
+    // Audio not supported — silent fail
+  }
+}
+
 // ─── Countdown hook ───────────────────────────────────────────────────────────
 
 function useCountdown() {
@@ -72,7 +100,11 @@ function useCountdown() {
     setState({ remaining: seconds, total: seconds });
     intervalRef.current = setInterval(() => {
       setState((prev) => {
-        if (!prev || prev.remaining <= 1) { clearInterval(intervalRef.current!); return null; }
+        if (!prev || prev.remaining <= 1) {
+          clearInterval(intervalRef.current!);
+          playTimerDone();
+          return null;
+        }
         return { ...prev, remaining: prev.remaining - 1 };
       });
     }, 1000);
@@ -232,15 +264,21 @@ function ExerciseCard({
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmRemoveSet, setConfirmRemoveSet] = useState<string | null>(null);
+  const [showPrevWeights, setShowPrevWeights] = useState(false);
+  const [prevData, setPrevData] = useState<ReturnType<typeof getPreviousExerciseData>>(null);
   const doneSets = ex.sets.filter((s) => s.done).length;
+
+  function handleShowPrevWeights() {
+    const data = getPreviousExerciseData(ex.name);
+    setPrevData(data);
+    setShowPrevWeights(true);
+  }
 
   function handleCheckSet(setKey: string, currentDone: boolean) {
     const newDone = !currentDone;
     onUpdateSet(setKey, "done", newDone);
     if (newDone) {
-      const idx = ex.sets.findIndex((s) => s.key === setKey);
-      const isLast = idx === ex.sets.length - 1;
-      if (!isLast && ex.restSeconds > 0) startRest(ex.restSeconds);
+      if (ex.restSeconds > 0) startRest(ex.restSeconds);
     } else {
       skipRest();
     }
@@ -261,6 +299,9 @@ function ExerciseCard({
             )}
           </div>
           <div className="flex items-center gap-1">
+            <button onClick={handleShowPrevWeights} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-blue-400" title="Vorige gewichten">
+              <History className="w-4 h-4" />
+            </button>
             <button onClick={onToggleCollapse} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
               {ex.collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             </button>
@@ -370,6 +411,41 @@ function ExerciseCard({
           onCancel={() => setConfirmRemoveSet(null)}
         />
       )}
+      {showPrevWeights && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setShowPrevWeights(false)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-xs shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold flex items-center gap-2">
+                <History className="w-4 h-4 text-blue-400" /> Vorige sessie
+              </span>
+              <button onClick={() => setShowPrevWeights(false)} className="p-1 rounded hover:bg-gray-800 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2 font-medium">{ex.name}</p>
+            {prevData ? (
+              <>
+                <p className="text-xs text-gray-600 mb-3">
+                  {new Date(prevData.date).toLocaleDateString("nl-NL")} · {prevData.workoutName}
+                </p>
+                <div className="space-y-1.5">
+                  {prevData.sets.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-400">Set {i + 1}</span>
+                      <span className="text-sm font-semibold text-white">
+                        {s.reps > 0 ? `${s.reps} reps` : "—"}
+                        {s.weight > 0 && <span className="text-gray-400 font-normal ml-1.5">@ {s.weight} kg</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">Geen eerdere data gevonden voor deze oefening.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -418,7 +494,16 @@ function SupersetCard({
 
   function addRound() {
     const sets: Record<string, LocalSet> = {};
-    ss.exercises.forEach((e) => { sets[e.id] = newSetForEx(); });
+    const lastRound = ss.rounds[ss.rounds.length - 1];
+    ss.exercises.forEach((e) => {
+      const prev = lastRound?.sets[e.id];
+      sets[e.id] = {
+        ...newSetForEx(),
+        reps: prev?.reps ?? 8,
+        weight: prev?.weight ?? 0,
+        duration: prev?.duration ?? 1,
+      };
+    });
     onUpdate({ ...ss, rounds: [...ss.rounds, { key: generateId(), sets }] });
   }
 
@@ -671,6 +756,63 @@ function SupersetCard({
   );
 }
 
+// ─── SaveWorkoutDialog ────────────────────────────────────────────────────────
+
+function generateWorkoutName(items: WorkoutItem[]): string {
+  const names = items.flatMap((item) => {
+    if (item.kind === "exercise") return [item.name];
+    return item.exercises.map((e) => e.name);
+  });
+  if (names.length === 0) return "Mijn Training";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names[0]}, ${names[1]} & meer`;
+}
+
+function SaveWorkoutDialog({ items, onConfirm, onCancel }: {
+  items: WorkoutItem[];
+  onConfirm: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const suggestion = generateWorkoutName(items);
+  const [name, setName] = useState(suggestion);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-xl space-y-4">
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-full bg-green-600/20 border border-green-600/40 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+          </div>
+          <p className="text-base font-semibold text-white">Training opslaan</p>
+          <p className="text-xs text-gray-500 mt-1">Geef je training een naam</p>
+        </div>
+        <div>
+          <input
+            autoFocus
+            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500 transition-colors text-center font-medium"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && name.trim() && onConfirm(name.trim())}
+          />
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 text-sm transition-colors">
+            Annuleren
+          </button>
+          <button
+            onClick={() => name.trim() && onConfirm(name.trim())}
+            disabled={!name.trim()}
+            className="flex-1 py-2 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white font-semibold text-sm transition-colors">
+            Opslaan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WorkoutPage() {
@@ -681,6 +823,10 @@ export default function WorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showSupersetPicker, setShowSupersetPicker] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   function newSet(type: "reps" | "duration"): LocalSet {
     return { id: generateId(), key: generateId(), type, reps: 8, weight: 0, duration: 1, done: false };
@@ -715,9 +861,72 @@ export default function WorkoutPage() {
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
+  function handleSaveTemplate() {
+    if (items.length === 0) return;
+    const template: WorkoutTemplate = {
+      id: generateId(),
+      name: workoutName,
+      createdAt: new Date().toISOString(),
+      exercises: items.flatMap((item) => {
+        if (item.kind === "exercise") {
+          const last = item.sets[item.sets.length - 1];
+          return [{
+            name: item.name,
+            setType: item.setType,
+            setCount: item.sets.length,
+            defaultReps: last?.reps ?? 8,
+            defaultWeight: last?.weight ?? 0,
+          }];
+        }
+        return item.exercises.map((ex) => {
+          const lastRound = item.rounds[item.rounds.length - 1];
+          const lastSet = lastRound?.sets[ex.id];
+          return {
+            name: ex.name,
+            setType: ex.setType,
+            setCount: item.rounds.length,
+            defaultReps: lastSet?.reps ?? 8,
+            defaultWeight: lastSet?.weight ?? 0,
+          };
+        });
+      }),
+    };
+    saveWorkoutTemplate(template);
+    setTemplateSaved(true);
+    setTimeout(() => setTemplateSaved(false), 2500);
+  }
+
+  function handleLoadTemplate(template: WorkoutTemplate) {
+    const newItems: WorkoutItem[] = template.exercises.map((ex) => ({
+      kind: "exercise" as const,
+      id: generateId(),
+      name: ex.name,
+      collapsed: false,
+      setType: ex.setType,
+      restSeconds: 90,
+      sets: Array.from({ length: ex.setCount }, () => ({
+        id: generateId(),
+        key: generateId(),
+        type: ex.setType,
+        reps: ex.defaultReps,
+        weight: ex.defaultWeight,
+        duration: 1,
+        done: false,
+      })),
+    }));
+    setItems(newItems);
+    setWorkoutName(template.name);
+    setShowTemplates(false);
+  }
+
   function handleFinish() {
-    if (items.length === 0) { alert("Add at least one exercise before finishing."); return; }
+    if (items.length === 0) { alert("Voeg eerst een oefening toe."); return; }
+    setShowSaveDialog(true);
+  }
+
+  function confirmSave(name: string) {
     setSaving(true);
+    setShowSaveDialog(false);
     const duration = Math.round((Date.now() - startTime) / 60000);
     // Flatten supersets into exercises for storage
     const exercises: Exercise[] = [];
@@ -739,7 +948,7 @@ export default function WorkoutPage() {
         });
       }
     });
-    addWorkout({ id: generateId(), name: workoutName, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
+    addWorkout({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
     router.push("/history");
   }
 
@@ -756,10 +965,33 @@ export default function WorkoutPage() {
             {elapsed}m elapsed · {items.length} item{items.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <button onClick={handleFinish} disabled={saving}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 transition-colors text-white font-semibold px-4 py-2 rounded-xl text-sm">
-          <CheckCircle className="w-4 h-4" /> {saving ? "Saving…" : "Finish"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setTemplates(getWorkoutTemplates()); setShowTemplates(true); }}
+            className="flex items-center gap-1.5 border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200 px-3 py-2 rounded-xl text-sm transition-colors"
+            title="Templates laden"
+          >
+            <BookOpen className="w-4 h-4" />
+          </button>
+          {items.length > 0 && (
+            <button
+              onClick={handleSaveTemplate}
+              className={`flex items-center gap-1.5 border px-3 py-2 rounded-xl text-sm transition-colors ${
+                templateSaved
+                  ? "border-green-600 text-green-400 bg-green-600/10"
+                  : "border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200"
+              }`}
+              title="Opslaan als template"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              {templateSaved && <span className="text-xs">Opgeslagen!</span>}
+            </button>
+          )}
+          <button onClick={handleFinish} disabled={saving}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 transition-colors text-white font-semibold px-4 py-2 rounded-xl text-sm">
+            <CheckCircle className="w-4 h-4" /> {saving ? "Saving…" : "Finish"}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -819,6 +1051,60 @@ export default function WorkoutPage() {
             className="w-full flex items-center justify-center gap-2 border border-dashed border-purple-800/50 hover:border-purple-600 text-purple-500 hover:text-purple-300 rounded-xl py-3.5 text-sm font-medium transition-colors">
             <Layers className="w-4 h-4" /> Add Superset
           </button>
+        </div>
+      )}
+
+      {showSaveDialog && (
+        <SaveWorkoutDialog
+          items={items}
+          onConfirm={confirmSave}
+          onCancel={() => setShowSaveDialog(false)}
+        />
+      )}
+
+      {showTemplates && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-sm shadow-xl space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-sm flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-blue-400" /> Mijn templates
+              </span>
+              <button onClick={() => setShowTemplates(false)} className="p-1 rounded hover:bg-gray-800 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {templates.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">Nog geen templates opgeslagen.<br />Sla een training op als template via <BookmarkPlus className="w-3.5 h-3.5 inline" />.</p>
+            ) : (
+              <div className="space-y-2">
+                {templates.map((t) => (
+                  <div key={t.id} className="bg-gray-800 rounded-xl p-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{t.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {t.exercises.length} oefening{t.exercises.length !== 1 ? "en" : ""} · {new Date(t.createdAt).toLocaleDateString("nl-NL")}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-0.5 truncate">
+                        {t.exercises.map((e) => e.name).join(", ")}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => handleLoadTemplate(t)}
+                        className="text-xs text-blue-400 hover:text-blue-300 border border-blue-700/40 rounded-lg px-2.5 py-1 transition-colors">
+                        Laden
+                      </button>
+                      <button
+                        onClick={() => { deleteWorkoutTemplate(t.id); setTemplates(getWorkoutTemplates()); }}
+                        className="p-1.5 rounded-lg hover:bg-red-900/30 text-gray-600 hover:text-red-400 transition-colors">
+                        <Trash className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

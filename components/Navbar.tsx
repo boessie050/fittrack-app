@@ -1,18 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Dumbbell, History, LayoutDashboard, Plus, BookOpen } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Dumbbell, History, LayoutDashboard, Plus, BookOpen, Users, LogOut, User } from "lucide-react";
+import { useLanguage } from "@/lib/useLanguage";
+import { useUser } from "@/lib/useUser";
+import { createClient } from "@/lib/supabase/client";
 
 const links = [
-  { href: "/", label: "Home", icon: Dumbbell },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/history", label: "History", icon: History },
-  { href: "/exercises", label: "Exercises", icon: BookOpen },
+  { href: "/", labelNl: "Home", labelEn: "Home", icon: Dumbbell },
+  { href: "/dashboard", labelNl: "Dashboard", labelEn: "Dashboard", icon: LayoutDashboard },
+  { href: "/history", labelNl: "Geschiedenis", labelEn: "History", icon: History },
+  { href: "/exercises", labelNl: "Oefeningen", labelEn: "Exercises", icon: BookOpen },
+  { href: "/community", labelNl: "Community", labelEn: "Community", icon: Users },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { lang, toggleLanguage } = useLanguage();
+  const { user } = useUser();
+
+  // Don't show navbar on auth pages
+  if (pathname === "/login" || pathname === "/register") return null;
+
+  const username = user?.user_metadata?.username || user?.email?.split("@")[0] || "Profiel";
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   return (
     <>
@@ -23,21 +41,52 @@ export default function Navbar() {
             <Dumbbell className="text-green-500 w-6 h-6" />
             <span className="font-bold text-lg tracking-tight">FitTrack</span>
           </div>
-          <Link
-            href="/workout"
-            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 transition-colors text-white text-sm font-semibold px-3 py-1.5 rounded-lg"
-          >
-            <Plus className="w-4 h-4" />
-            New Workout
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Language toggle */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1.5 border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              title={lang === "nl" ? "Switch to English" : "Schakel naar Nederlands"}
+            >
+              {lang === "nl" ? "🇳🇱 NL" : "🇬🇧 EN"}
+            </button>
+
+            {/* User menu */}
+            {user && (
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 text-gray-300 text-xs font-medium">
+                  <div className="w-6 h-6 rounded-full bg-green-600 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="hidden sm:inline">{username}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Uitloggen"
+                  className="flex items-center gap-1 border border-gray-700 hover:border-red-500/50 text-gray-400 hover:text-red-400 px-2 py-1.5 rounded-lg text-xs transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <Link
+              href="/workout"
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 transition-colors text-white text-sm font-semibold px-3 py-1.5 rounded-lg"
+            >
+              <Plus className="w-4 h-4" />
+              {lang === "nl" ? "Training" : "Workout"}
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Bottom nav (mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-50 sm:hidden">
         <div className="flex">
-          {links.map(({ href, label, icon: Icon }) => {
+          {links.map(({ href, labelNl, labelEn, icon: Icon }) => {
             const active = pathname === href;
+            const label = lang === "nl" ? labelNl : labelEn;
             return (
               <Link
                 key={href}
@@ -56,8 +105,9 @@ export default function Navbar() {
 
       {/* Side nav (desktop) */}
       <aside className="hidden sm:flex fixed left-0 top-14 bottom-0 w-52 bg-gray-900 border-r border-gray-800 flex-col gap-1 p-3">
-        {links.map(({ href, label, icon: Icon }) => {
+        {links.map(({ href, labelNl, labelEn, icon: Icon }) => {
           const active = pathname === href;
+          const label = lang === "nl" ? labelNl : labelEn;
           return (
             <Link
               key={href}

@@ -8,7 +8,12 @@ import {
   getByCategory,
   type ExerciseInfo,
 } from "@/lib/exercises";
-import { Search, X, ChevronDown, ChevronRight, Loader2, Info } from "lucide-react";
+import {
+  addPendingExercise,
+  ALL_MUSCLE_GROUPS,
+  type MuscleGroup,
+} from "@/lib/store";
+import { Search, X, ChevronDown, ChevronRight, Loader2, Info, Send } from "lucide-react";
 
 type Props = {
   onSelect: (name: string) => void;
@@ -23,6 +28,11 @@ export default function ExercisePicker({ onSelect, onClose, usedNames = [] }: Pr
   const [results, setResults] = useState<ExerciseInfo[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestName, setRequestName] = useState("");
+  const [requestMuscle, setRequestMuscle] = useState<MuscleGroup>("Custom");
+  const [requestNote, setRequestNote] = useState("");
+  const [requestSent, setRequestSent] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load exercises on mount
@@ -50,10 +60,24 @@ export default function ExercisePicker({ onSelect, onClose, usedNames = [] }: Pr
     onClose();
   }
 
+  function openRequestForm() {
+    setRequestName(query.trim());
+    setRequestMuscle("Custom");
+    setRequestNote("");
+    setRequestSent(false);
+    setShowRequestForm(true);
+  }
+
+  function submitRequest() {
+    if (!requestName.trim()) return;
+    addPendingExercise(requestName.trim(), requestMuscle, requestNote.trim() || undefined);
+    setRequestSent(true);
+  }
+
   const showBrowse = !query.trim();
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div className="relative bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <span className="text-sm font-semibold">Add Exercise</span>
@@ -95,13 +119,14 @@ export default function ExercisePicker({ onSelect, onClose, usedNames = [] }: Pr
           </div>
         )}
 
-        {/* Custom entry when no match */}
+        {/* Request entry when no match */}
         {!loading && query.trim() && results.length === 0 && (
           <button
-            onClick={() => handleSelect(query.trim())}
-            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-800 text-sm transition-colors"
+            onClick={openRequestForm}
+            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-800 text-sm transition-colors flex items-center gap-2"
           >
-            <span className="text-gray-400">Add custom: </span>
+            <Send className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+            <span className="text-gray-400">Oefening aanvragen: </span>
             <span className="text-white font-medium">{query.trim()}</span>
           </button>
         )}
@@ -117,16 +142,17 @@ export default function ExercisePicker({ onSelect, onClose, usedNames = [] }: Pr
                 onSelect={handleSelect}
               />
             ))}
-            {/* Always show "add custom" option at the bottom of results */}
+            {/* Request new exercise at bottom of results */}
             {query.trim() &&
               !results.find(
                 (r) => r.name.toLowerCase() === query.trim().toLowerCase()
               ) && (
                 <button
-                  onClick={() => handleSelect(query.trim())}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  onClick={openRequestForm}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1.5"
                 >
-                  + Add &ldquo;{query.trim()}&rdquo; as custom exercise
+                  <Send className="w-3 h-3 text-yellow-500" />
+                  Oefening &ldquo;{query.trim()}&rdquo; aanvragen
                 </button>
               )}
           </div>
@@ -189,6 +215,80 @@ export default function ExercisePicker({ onSelect, onClose, usedNames = [] }: Pr
           </div>
         )}
       </div>
+
+      {/* Request form modal */}
+      {showRequestForm && (
+        <div className="absolute inset-0 z-20 bg-gray-900/95 rounded-xl flex flex-col p-4 gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-yellow-400 flex items-center gap-2">
+              <Send className="w-4 h-4" /> Oefening aanvragen
+            </span>
+            <button onClick={() => setShowRequestForm(false)} className="p-1 rounded hover:bg-gray-800 text-gray-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {requestSent ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+              <div className="w-12 h-12 rounded-full bg-green-600/20 border border-green-600/40 flex items-center justify-center">
+                <Send className="w-5 h-5 text-green-400" />
+              </div>
+              <p className="text-sm text-gray-200 font-medium">Aanvraag ingediend!</p>
+              <p className="text-xs text-gray-500">
+                &ldquo;{requestName}&rdquo; is opgeslagen als pending oefening.
+              </p>
+              <button
+                onClick={() => setShowRequestForm(false)}
+                className="mt-2 text-xs text-green-400 border border-green-700/40 rounded-lg px-4 py-1.5 hover:border-green-500 transition-colors"
+              >
+                Sluiten
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Naam oefening</label>
+                  <input
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                    value={requestName}
+                    onChange={(e) => setRequestName(e.target.value)}
+                    placeholder="bijv. Dumbbell High Pull"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Spiergroep</label>
+                  <select
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                    value={requestMuscle}
+                    onChange={(e) => setRequestMuscle(e.target.value as MuscleGroup)}
+                  >
+                    {ALL_MUSCLE_GROUPS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Toelichting (optioneel)</label>
+                  <input
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                    value={requestNote}
+                    onChange={(e) => setRequestNote(e.target.value)}
+                    placeholder="bijv. compound pull oefening"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={submitRequest}
+                disabled={!requestName.trim()}
+                className="w-full py-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" /> Aanvraag indienen
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
