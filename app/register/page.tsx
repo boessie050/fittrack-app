@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Dumbbell, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Dumbbell, Mail, Lock, User, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
@@ -10,8 +11,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -38,35 +39,15 @@ export default function RegisterPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      setSuccess(true);
+      // Email bevestiging staat uit — direct inloggen na registratie
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        // Fallback: stuur naar login pagina
+        router.push("/login");
+      } else {
+        router.push("/");
+      }
     }
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <Dumbbell className="text-green-500 w-7 h-7" />
-            <span className="font-bold text-2xl tracking-tight text-white">FitTrack</span>
-          </div>
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Bevestig je e-mail</h2>
-            <p className="text-gray-400 text-sm">
-              We hebben een bevestigingslink gestuurd naar <strong className="text-white">{email}</strong>.
-              Klik op de link om je account te activeren.
-            </p>
-            <Link
-              href="/login"
-              className="block mt-4 text-green-400 hover:text-green-300 text-sm font-medium"
-            >
-              Terug naar inloggen
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
