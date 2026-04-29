@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  addWorkout, generateId, type Exercise, type Set,
+  generateId, type Exercise, type Set,
   getWorkoutTemplates, saveWorkoutTemplate, deleteWorkoutTemplate,
-  getPreviousExerciseData,
   type WorkoutTemplate,
 } from "@/lib/store";
+import { addWorkoutToDB, getPreviousExerciseDataFromDB } from "@/lib/supabase-store";
 import ExercisePicker from "@/components/ExercisePicker";
 import TimerPicker from "@/components/TimerPicker";
 import {
@@ -265,11 +265,11 @@ function ExerciseCard({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmRemoveSet, setConfirmRemoveSet] = useState<string | null>(null);
   const [showPrevWeights, setShowPrevWeights] = useState(false);
-  const [prevData, setPrevData] = useState<ReturnType<typeof getPreviousExerciseData>>(null);
+  const [prevData, setPrevData] = useState<Awaited<ReturnType<typeof getPreviousExerciseDataFromDB>>>(null);
   const doneSets = ex.sets.filter((s) => s.done).length;
 
-  function handleShowPrevWeights() {
-    const data = getPreviousExerciseData(ex.name);
+  async function handleShowPrevWeights() {
+    const data = await getPreviousExerciseDataFromDB(ex.name);
     setPrevData(data);
     setShowPrevWeights(true);
   }
@@ -924,7 +924,7 @@ export default function WorkoutPage() {
     setShowSaveDialog(true);
   }
 
-  function confirmSave(name: string) {
+  async function confirmSave(name: string) {
     setSaving(true);
     setShowSaveDialog(false);
     const duration = Math.round((Date.now() - startTime) / 60000);
@@ -948,7 +948,7 @@ export default function WorkoutPage() {
         });
       }
     });
-    addWorkout({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
+    await addWorkoutToDB({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
     router.push("/history");
   }
 

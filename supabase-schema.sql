@@ -26,6 +26,79 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ============================================================
+-- WORKOUTS
+-- ============================================================
+create table if not exists public.workouts (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  name text not null,
+  date timestamptz not null,
+  duration int not null default 0,
+  created_at timestamptz default now()
+);
+
+-- EXERCISES per workout
+create table if not exists public.workout_exercises (
+  id uuid default gen_random_uuid() primary key,
+  workout_id uuid references public.workouts on delete cascade not null,
+  name text not null,
+  position int not null default 0
+);
+
+-- SETS per exercise
+create table if not exists public.workout_sets (
+  id uuid default gen_random_uuid() primary key,
+  exercise_id uuid references public.workout_exercises on delete cascade not null,
+  type text default 'reps' check (type in ('reps', 'duration')),
+  reps int not null default 0,
+  weight numeric not null default 0,
+  duration int not null default 0,
+  position int not null default 0
+);
+
+-- RLS for workouts
+alter table public.workouts enable row level security;
+create policy "Users can view own workouts" on public.workouts for select using (auth.uid() = user_id);
+create policy "Users can insert own workouts" on public.workouts for insert with check (auth.uid() = user_id);
+create policy "Users can delete own workouts" on public.workouts for delete using (auth.uid() = user_id);
+
+-- RLS for workout_exercises
+alter table public.workout_exercises enable row level security;
+create policy "Users can view own exercises" on public.workout_exercises for select using (
+  exists (select 1 from public.workouts w where w.id = workout_id and w.user_id = auth.uid())
+);
+create policy "Users can insert own exercises" on public.workout_exercises for insert with check (
+  exists (select 1 from public.workouts w where w.id = workout_id and w.user_id = auth.uid())
+);
+create policy "Users can delete own exercises" on public.workout_exercises for delete using (
+  exists (select 1 from public.workouts w where w.id = workout_id and w.user_id = auth.uid())
+);
+
+-- RLS for workout_sets
+alter table public.workout_sets enable row level security;
+create policy "Users can view own sets" on public.workout_sets for select using (
+  exists (
+    select 1 from public.workout_exercises we
+    join public.workouts w on w.id = we.workout_id
+    where we.id = exercise_id and w.user_id = auth.uid()
+  )
+);
+create policy "Users can insert own sets" on public.workout_sets for insert with check (
+  exists (
+    select 1 from public.workout_exercises we
+    join public.workouts w on w.id = we.workout_id
+    where we.id = exercise_id and w.user_id = auth.uid()
+  )
+);
+create policy "Users can delete own sets" on public.workout_sets for delete using (
+  exists (
+    select 1 from public.workout_exercises we
+    join public.workouts w on w.id = we.workout_id
+    where we.id = exercise_id and w.user_id = auth.uid()
+  )
+);
+
+-- ============================================================
 -- COMMUNITY PROPOSALS
 -- ============================================================
 create table if not exists public.proposals (
