@@ -81,7 +81,7 @@ export default function Navbar() {
               }`}
             >
               {activeWorkout ? (
-                <><CheckCircle className="w-4 h-4" /> Finish</>
+                <><CheckCircle className="w-4 h-4" /> Opslaan</>
               ) : (
                 <><Plus className="w-4 h-4" /> {lang === "nl" ? "Training" : "Workout"}</>
               )}
