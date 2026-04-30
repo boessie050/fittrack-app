@@ -73,7 +73,7 @@ export default function Navbar() {
             )}
 
             <Link
-              href="/workout"
+              href={activeWorkout ? "/workout?save=1" : "/workout"}
               className={`flex items-center gap-1.5 transition-colors text-white text-sm font-semibold px-3 py-1.5 rounded-lg ${
                 activeWorkout
                   ? "bg-green-600 hover:bg-green-500 animate-pulse"

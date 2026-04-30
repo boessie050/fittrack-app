@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   generateId, type Exercise, type Set,
   getWorkoutTemplates, saveWorkoutTemplate, deleteWorkoutTemplate,
@@ -818,6 +818,7 @@ function SaveWorkoutDialog({ items, onConfirm, onCancel }: {
 
 export default function WorkoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { activeWorkout, startWorkout, updateWorkout, clearWorkout } = useWorkout();
 
   // Local UI state (not persisted)
@@ -835,6 +836,14 @@ export default function WorkoutPage() {
       startWorkout("My Workout");
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open save dialog if ?save=1 in URL
+  useEffect(() => {
+    if (searchParams.get("save") === "1" && activeWorkout && items.length > 0) {
+      setShowSaveDialog(true);
+      router.replace("/workout");
+    }
+  }, [searchParams, activeWorkout]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive from context
   const items: WorkoutItem[] = activeWorkout?.items ?? [];
@@ -1011,10 +1020,6 @@ export default function WorkoutPage() {
               {templateSaved && <span className="text-xs">Opgeslagen!</span>}
             </button>
           )}
-          <button onClick={handleFinish} disabled={saving}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 transition-colors text-white font-semibold px-4 py-2 rounded-xl text-sm">
-            <CheckCircle className="w-4 h-4" /> {saving ? "Bezig…" : "Opslaan"}
-          </button>
         </div>
       </div>
 
