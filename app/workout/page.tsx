@@ -8,6 +8,7 @@ import {
   type WorkoutTemplate,
 } from "@/lib/store";
 import { addWorkoutToDB, getPreviousExerciseDataFromDB } from "@/lib/supabase-store";
+import { useWorkout } from "@/lib/workoutContext";
 import ExercisePicker from "@/components/ExercisePicker";
 import TimerPicker from "@/components/TimerPicker";
 import {
@@ -817,9 +818,9 @@ function SaveWorkoutDialog({ items, onConfirm, onCancel }: {
 
 export default function WorkoutPage() {
   const router = useRouter();
-  const [workoutName, setWorkoutName] = useState("My Workout");
-  const [items, setItems] = useState<WorkoutItem[]>([]);
-  const [startTime] = useState(() => Date.now());
+  const { activeWorkout, startWorkout, updateWorkout, clearWorkout } = useWorkout();
+
+  // Local UI state (not persisted)
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showSupersetPicker, setShowSupersetPicker] = useState(false);
@@ -827,6 +828,29 @@ export default function WorkoutPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [templateSaved, setTemplateSaved] = useState(false);
+
+  // Start a new workout if none is active
+  useEffect(() => {
+    if (!activeWorkout) {
+      startWorkout("My Workout");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derive from context
+  const items: WorkoutItem[] = activeWorkout?.items ?? [];
+  const workoutName: string = activeWorkout?.name ?? "My Workout";
+  const startTime: number = activeWorkout?.startTime ?? Date.now();
+
+  function setItems(updater: WorkoutItem[] | ((prev: WorkoutItem[]) => WorkoutItem[])) {
+    updateWorkout((prev) => ({
+      ...prev,
+      items: typeof updater === "function" ? updater(prev.items) : updater,
+    }));
+  }
+
+  function setWorkoutName(name: string) {
+    updateWorkout((prev) => ({ ...prev, name }));
+  }
 
   function newSet(type: "reps" | "duration"): LocalSet {
     return { id: generateId(), key: generateId(), type, reps: 8, weight: 0, duration: 1, done: false };
@@ -928,7 +952,6 @@ export default function WorkoutPage() {
     setSaving(true);
     setShowSaveDialog(false);
     const duration = Math.round((Date.now() - startTime) / 60000);
-    // Flatten supersets into exercises for storage
     const exercises: Exercise[] = [];
     items.forEach((item) => {
       if (item.kind === "exercise") {
@@ -949,6 +972,7 @@ export default function WorkoutPage() {
       }
     });
     await addWorkoutToDB({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
+    clearWorkout();
     router.push("/history");
   }
 
@@ -989,7 +1013,7 @@ export default function WorkoutPage() {
           )}
           <button onClick={handleFinish} disabled={saving}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 transition-colors text-white font-semibold px-4 py-2 rounded-xl text-sm">
-            <CheckCircle className="w-4 h-4" /> {saving ? "Saving…" : "Finish"}
+            <CheckCircle className="w-4 h-4" /> {saving ? "Opslaan…" : "Opslaan"}
           </button>
         </div>
       </div>

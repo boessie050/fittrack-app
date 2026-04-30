@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, History, LayoutDashboard, Plus, BookOpen, Users, LogOut, User } from "lucide-react";
+import { Dumbbell, History, LayoutDashboard, Plus, BookOpen, Users, LogOut, User, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/lib/useLanguage";
 import { useUser } from "@/lib/useUser";
+import { useWorkout } from "@/lib/workoutContext";
 import { createClient } from "@/lib/supabase/client";
 
 const links = [
@@ -20,6 +21,7 @@ export default function Navbar() {
   const router = useRouter();
   const { lang, toggleLanguage } = useLanguage();
   const { user } = useUser();
+  const { activeWorkout } = useWorkout();
 
   // Don't show navbar on auth pages
   if (pathname === "/login" || pathname === "/register") return null;
@@ -72,10 +74,17 @@ export default function Navbar() {
 
             <Link
               href="/workout"
-              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 transition-colors text-white text-sm font-semibold px-3 py-1.5 rounded-lg"
+              className={`flex items-center gap-1.5 transition-colors text-white text-sm font-semibold px-3 py-1.5 rounded-lg ${
+                activeWorkout
+                  ? "bg-green-600 hover:bg-green-500 animate-pulse"
+                  : "bg-green-600 hover:bg-green-500"
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              {lang === "nl" ? "Training" : "Workout"}
+              {activeWorkout ? (
+                <><CheckCircle className="w-4 h-4" /> Finish</>
+              ) : (
+                <><Plus className="w-4 h-4" /> {lang === "nl" ? "Training" : "Workout"}</>
+              )}
             </Link>
           </div>
         </div>
