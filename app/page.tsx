@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getWorkouts, type Workout } from "@/lib/store";
+import { getWorkoutsFromDB, type Workout } from "@/lib/supabase-store";
 import {
   Dumbbell,
   Flame,
@@ -35,7 +35,7 @@ export default function HomePage() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
 
   useEffect(() => {
-    setWorkouts(getWorkouts());
+    getWorkoutsFromDB().then(setWorkouts);
   }, []);
 
   const recentWorkouts = workouts.slice(0, 3);

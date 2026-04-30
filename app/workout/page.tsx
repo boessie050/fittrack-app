@@ -430,7 +430,7 @@ function ExerciseCard({
                   {new Date(prevData.date).toLocaleDateString("nl-NL")} · {prevData.workoutName}
                 </p>
                 <div className="space-y-1.5">
-                  {prevData.sets.map((s, i) => (
+                  {prevData.sets.map((s: { reps: number; weight: number }, i: number) => (
                     <div key={i} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
                       <span className="text-xs text-gray-400">Set {i + 1}</span>
                       <span className="text-sm font-semibold text-white">
