@@ -982,7 +982,8 @@ export default function WorkoutPage() {
     });
     await addWorkoutToDB({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
     clearWorkout();
-    router.push("/history");
+    setSaving(false);
+    window.location.href = "/history";
   }
 
   const elapsed = Math.round((Date.now() - startTime) / 60000);
