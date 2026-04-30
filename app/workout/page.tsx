@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   generateId, type Exercise, type Set,
@@ -819,6 +819,14 @@ function SaveWorkoutDialog({ items, onConfirm, onCancel }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WorkoutPage() {
+  return (
+    <Suspense fallback={<div className="sm:ml-52 p-6 text-gray-400">Loading…</div>}>
+      <WorkoutPageInner />
+    </Suspense>
+  );
+}
+
+function WorkoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { activeWorkout, startWorkout, updateWorkout, clearWorkout } = useWorkout();
