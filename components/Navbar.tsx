@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, History, LayoutDashboard, Plus, BookOpen, Users, LogOut, User, CheckCircle } from "lucide-react";
+import { Dumbbell, History, LayoutDashboard, Plus, BookOpen, Users, LogOut, User, CheckCircle, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/lib/useLanguage";
 import { useUser } from "@/lib/useUser";
 import { useWorkout } from "@/lib/workoutContext";
@@ -132,6 +132,20 @@ export default function Navbar() {
             </Link>
           );
         })}
+        {/* Privacy link at bottom */}
+        <div className="mt-auto">
+          <Link
+            href="/privacy"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${
+              pathname === "/privacy"
+                ? "bg-green-600/20 text-green-400"
+                : "text-gray-600 hover:bg-gray-800 hover:text-gray-400"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            {lang === "nl" ? "Privacy" : "Privacy"}
+          </Link>
+        </div>
       </aside>
     </>
   );
