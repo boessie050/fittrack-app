@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { fetchExerciseDetail, searchWgerExerciseId, stripHtml, muscleNameToKey, type WgerExerciseInfo } from "@/lib/exerciseDetail";
