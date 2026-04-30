@@ -49,10 +49,10 @@ export async function getWorkoutsFromDB(): Promise<Workout[]> {
 
 // ─── Write workout ───────────────────────────────────────────────────────────
 
-export async function addWorkoutToDB(workout: Workout): Promise<void> {
+export async function addWorkoutToDB(workout: Workout): Promise<{ error: string | null }> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { error: "Niet ingelogd" };
 
   // 1. Insert workout
   const { data: wRow, error: wErr } = await supabase
@@ -69,7 +69,7 @@ export async function addWorkoutToDB(workout: Workout): Promise<void> {
 
   if (wErr || !wRow) {
     console.error("Failed to insert workout", wErr);
-    return;
+    return { error: wErr?.message ?? "Onbekende fout bij opslaan workout" };
   }
 
   // 2. Insert exercises + sets
@@ -99,8 +99,11 @@ export async function addWorkoutToDB(workout: Workout): Promise<void> {
       position: sIdx,
     }));
 
-    await supabase.from("workout_sets").insert(setsToInsert);
+    const { error: setsErr } = await supabase.from("workout_sets").insert(setsToInsert);
+    if (setsErr) console.error("Failed to insert sets for exercise", ex.name, setsErr);
   }
+
+  return { error: null };
 }
 
 // ─── Delete workout ──────────────────────────────────────────────────────────

@@ -980,9 +980,13 @@ export default function WorkoutPage() {
         });
       }
     });
-    await addWorkoutToDB({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
-    clearWorkout();
+    const result = await addWorkoutToDB({ id: generateId(), name, date: new Date().toISOString(), duration: duration < 1 ? 1 : duration, exercises });
     setSaving(false);
+    if (result.error) {
+      alert(`Opslaan mislukt: ${result.error}`);
+      return;
+    }
+    clearWorkout();
     window.location.href = "/history";
   }
 
